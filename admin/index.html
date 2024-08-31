@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>留言板 - 后台管理</title>
+    <script>
+        console.log("Message Board 开源版")
+        console.log("GitHub: https://github.com/zlk-sys/MessageBoard")
+    </script>
+    <link rel="icon" href="/img/icon.png" type="image/png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .admin-board {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .top-label {
+            background-color: #ffc107;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="container mt-3">
+        <div id="alertContainer" class="alert" role="alert" style="display:none;"></div>
+    </div>
+    <div class="admin-board">
+        <h2 class="text-center">留言管理</h2>
+        <div class="form-group">
+            <label for="search">搜索留言</label>
+            <input type="text" class="form-control" id="search" placeholder="输入关键词">
+        </div>
+        <hr>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>用户名</th>
+                    <th>内容</th>
+                    <th>Message ID</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="messagesContainer">
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js"></script>
+<script>
+
+    function showAlert(message, type) {
+        const alertContainer = document.getElementById('alertContainer');
+        alertContainer.className = `alert alert-${type} alert-dismissible fade show`;
+        alertContainer.textContent = message;
+        alertContainer.style.display = 'block';
+
+        setTimeout(() => {
+            alertContainer.classList.remove('show');
+            setTimeout(() => {
+                alertContainer.style.display = 'none';
+            }, 150);
+        }, 3000);
+    }
+
+    function addMessage({ name, content, uuid, pos }) {
+        const row = document.createElement('tr');
+        row.dataset.name = name.toLowerCase();
+        row.dataset.content = content.toLowerCase();
+        row.dataset.uuid = uuid.toLowerCase();
+        row.innerHTML = `
+            <td>${name}</td>
+            <td>${content} ${pos === 'top' ? '<span class="top-label">置顶</span>' : ''}</td>
+            <td>${uuid}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="confirmAction('delete', '${uuid}')">删除</button>
+                <button class="btn btn-secondary btn-sm" onclick="confirmAction('toggleTop', '${uuid}', ${pos === 'top'})">${pos === 'top' ? '取消置顶' : '置顶'}</button>
+            </td>
+        `;
+        document.getElementById('messagesContainer').appendChild(row);
+    }
+
+    function fetchMessages() {
+        $.ajax({
+            url: 'https://api.example.com/message',
+            method: 'POST',
+            success: function(data) {
+                document.getElementById('messagesContainer').innerHTML = '';
+                data.forEach(addMessage);
+            }
+        });
+    }
+
+    function confirmAction(action, uuid, isTop = false) {
+        const password = prompt("请输入管理密码：");
+        if (!password) return;
+
+        if (action === 'delete') {
+            $.ajax({
+                url: 'https://api.example.com/del',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ uuid, password }),
+                success: function() {
+                    showAlert("操作成功", "success");
+                    fetchMessages()
+                },
+                error: function() {
+                    showAlert("操作失败，可能是管理员密码错误或网络异常", "danger")
+                }
+
+            });
+        } else if (action === 'toggleTop') {
+            $.ajax({
+                url: 'https://api.example.com/top',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ uuid, password, top: !isTop }),
+                success: function() {
+                    showAlert("操作成功", "success");
+                    fetchMessages()
+                },
+                error: function() {
+                    showAlert("操作失败，可能是管理员密码错误或网络异常", "danger")
+                }
+            });
+        }
+    }
+
+    document.getElementById('search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#messagesContainer tr');
+        rows.forEach(row => {
+            const name = row.dataset.name;
+            const content = row.dataset.content;
+            const uuid = row.dataset.uuid;
+            if (name.includes(searchTerm) || content.includes(searchTerm) || uuid.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    window.onload = fetchMessages;
+</script>
+
+</body>
+</html>
